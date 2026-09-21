@@ -1,0 +1,188 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        required: false
+        type: string
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: '0'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v4
+      with:
+        log-accepted-android-sdk-licenses: false
+        cmdline-tools-version: '14742923'
+        packages: 'platforms;android-37.0 build-tools;37.0.0 platform-tools'
+
+    - name: Install NDK
+      run: |
+        echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+          --channel=0 \
+          --install "ndk;29.0.14206865"
+        echo "NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865" >> $GITHUB_ENV
+        sed -i '10i\
+        \
+            ndkVersion = "29.0.14206865"' ${{ github.workspace }}/app/build.gradle.kts
+
+    - name: Restore cached libhevtun
+      id: cache-libhevtun-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ github.workspace }}/libs
+        key: libhevtun-${{ runner.os }}-${{ env.NDK_HOME }}-${{ hashFiles('compile-hevtun.sh') }}
+
+    - name: Clone hev-socks5-tunnel
+      if: steps.cache-libhevtun-restore.outputs.cache-hit != 'true'
+      run: |
+        if [ ! -d "hev-socks5-tunnel" ]; then
+          git clone --recursive https://github.com/heiher/hev-socks5-tunnel.git
+        fi
+
+    - name: Build libhevtun
+      if: steps.cache-libhevtun-restore.outputs.cache-hit != 'true'
+      run: |
+        if [ -f "compile-hevtun.sh" ]; then
+          chmod +x compile-hevtun.sh
+          bash compile-hevtun.sh || echo "libhevtun build skipped or handled"
+        fi
+    
+    - name: Save libhevtun
+      if: steps.cache-libhevtun-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ github.workspace }}/libs
+        key: libhevtun-${{ runner.os }}-${{ env.NDK_HOME }}-${{ hashFiles('compile-hevtun.sh') }}
+
+    - name: Copy libhevtun
+      run: |
+        if [ -d "${{ github.workspace }}/libs" ]; then
+          cp -r ${{ github.workspace }}/libs ${{ github.workspace }}/app
+        fi
+
+    - name: Fetch AndroidLibXrayLite tag
+      run: |
+        if [ -d "AndroidLibXrayLite" ]; then
+          pushd AndroidLibXrayLite
+          CURRENT_TAG="v26.7.31"
+          echo "Current tag in this repo: $CURRENT_TAG"
+          echo "CURRENT_TAG=$CURRENT_TAG" >> $GITHUB_ENV
+          popd
+        else
+          echo "CURRENT_TAG=v26.7.31" >> $GITHUB_ENV
+        fi
+
+    - name: Download libv2ray
+      uses: robinraju/release-downloader@v1.13
+      with:
+        repository: '2dust/AndroidLibXrayLite'
+        tag: ${{ env.CURRENT_TAG }}
+        fileName: 'libv2ray.aar'
+        out-file-path: app/libs/
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+
+      # --- BAGIAN OTOMATISASI JAR ---
+    - name: Fix Gradle Wrapper (Otomatis tiap Build)
+      run: |
+        echo "--- Memastikan Gradle Wrapper selalu fresh ---"
+        rm -rf gradle/wrapper/gradle-wrapper.jar
+        # Generate ulang wrapper supaya gak korup
+        gradle wrapper --gradle-version 9.5.1
+      # ------------------------------
+
+    - name: Decode Keystore
+      uses: timheuer/base64-to-file@v2.0.0
+      id: android_keystore
+      with:
+        fileName: "android_keystore.jks"
+        encodedString: ${{ secrets.APP_KEYSTORE_BASE64 }}
+
+    - name: Build APK
+      run: |
+        echo "sdk.dir=${ANDROID_HOME}" > local.properties
+        chmod 755 gradlew
+        ./gradlew assembleRelease -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.APP_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.APP_KEYSTORE_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.APP_KEY_PASSWORD }}
+    
+    - name: Upload arm64-v8a APK
+      uses: actions/upload-artifact@v4
+      if: ${{ success() }}
+      with:
+        name: arm64-v8a
+        path: ${{ github.workspace }}/app/build/outputs/apk/*/release/*arm64-v8a*.apk
+
+    - name: Upload armeabi-v7a APK
+      uses: actions/upload-artifact@v4
+      if: ${{ success() }}
+      with:
+        name: armeabi-v7a
+        path: ${{ github.workspace }}/app/build/outputs/apk/*/release/*armeabi-v7a*.apk
+
+    - name: Upload x86 APK
+      uses: actions/upload-artifact@v4
+      if: ${{ success() }}
+      with:
+        name: x86-apk
+        path: ${{ github.workspace }}/app/build/outputs/apk/*/release/*x86*.apk
+
+    - name: Upload universal / release APK
+      uses: actions/upload-artifact@v4
+      if: ${{ success() }}
+      with:
+        name: release-apk
+        path: ${{ github.workspace }}/app/build/outputs/apk/**/*.apk
+
+  sign-and-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+
+    steps:
+      - name: Download APK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+
+      - name: Sign APK files
+        run: |
+          printf '%s' "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import || true
+          KEY=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
+          mkdir -p release-files
+
+          find release -type f -name '*.apk' | while read apk; do
+            cp "$apk" release-files/
+            if [ -n "$KEY" ]; then
+              gpg --batch --yes --local-user "$KEY" --detach-sign --output "release-files/$(basename "$apk").sig" "$apk"
+            fi
+          done
+
+          if [ -n "$KEY" ]; then
+            gpg --armor --export "$KEY" > release-files/v2rayN-public-key.asc
+          fi
+
+      - name: Upload APKs, signatures and public key to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          file: release-files/*
+          tag: ${{ inputs.release_tag }}
+          file_glob: true
+          prerelease: true

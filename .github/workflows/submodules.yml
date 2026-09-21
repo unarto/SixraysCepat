@@ -1,0 +1,45 @@
+name: Pasang Submodule
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  inject-submodules:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ambil Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set Identity Bot
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Eksekusi Pasang Submodule
+        run: |
+          # 1. AndroidLibXrayLite
+          git rm -rf AndroidLibXrayLite || true
+          rm -rf .git/modules/AndroidLibXrayLite || true
+          git config -f .gitmodules --remove-section submodule.AndroidLibXrayLite || true
+          git submodule add https://github.com/2dust/AndroidLibXrayLite AndroidLibXrayLite
+
+          # 2. hev-socks5-tunnel
+          git rm -rf hev-socks5-tunnel || true
+          rm -rf .git/modules/hev-socks5-tunnel || true
+          git config -f .gitmodules --remove-section submodule.hev-socks5-tunnel || true
+          git submodule add https://github.com/heiher/hev-socks5-tunnel hev-socks5-tunnel
+
+          git submodule update --init --recursive
+          git submodule sync --recursive
+
+          git add .
+          git commit -m "🤖 Bot: Pasang ulang submodule AndroidLibXrayLite dan hev-socks5-tunnel" || true
+          
+          # Push otomatis ke branch di mana workflow ini dijalankan (master/main)
+          git push origin HEAD:${GITHUB_REF#refs/heads/}

@@ -1,0 +1,115 @@
+name: Manual & Scheduled Release (Xray v26.1.23 Locked)
+
+on:
+  schedule:
+    - cron: '0 23 * * *' # Berjalan otomatis setiap jam 11 malam
+  workflow_dispatch: # Memungkinkan kamu klik "Run workflow" kapan saja secara manual
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y unzip wget
+
+      - name: Set Locked Xray-core Version
+        id: vars
+        run: |
+          TARGET_VERSION="26.1.23"
+          echo "target_version=$TARGET_VERSION" >> $GITHUB_OUTPUT
+          echo "Xray-core version locked to: v$TARGET_VERSION"
+
+      - name: Extract Go Version from Target Xray
+        id: download_info
+        run: |
+          # Ambil info Go Version menggunakan file linux v26.1.23 (hanya untuk log properti)
+          wget -q "https://github.com/XTLS/Xray-core/releases/download/v${{ steps.vars.outputs.target_version }}/Xray-linux-64.zip"
+          unzip -q -o Xray-linux-64.zip xray
+          chmod +x xray
+          go_version=$(./xray version | grep -o 'go[0-9.]\+' | head -1 | sed 's/go//')
+          rm -f xray Xray-linux-64.zip
+          
+          if [ -z "$go_version" ]; then
+            echo "Failed to extract Go version" >&2
+            exit 1
+          fi
+          echo "go_version=$go_version" >> $GITHUB_OUTPUT
+          echo "Extracted Go version: $go_version"
+
+      - name: Inject Libxray Core v26.1.23 to Android Project
+        run: |
+          # 1. Deteksi letak folder main asli (mengabaikan internal .git cache)
+          MAIN_DIR=$(find . -not -path '*/.*' -type d -name "main" | head -n 1)
+          echo "Folder utama terdeteksi di: $MAIN_DIR"
+          
+          mkdir -p "$MAIN_DIR/jniLibs/arm64-v8a"
+          mkdir -p "$MAIN_DIR/jniLibs/x86_64"
+
+          # 2. Ambil nilai versi langsung menggunakan environment variable lokal (Solusi Fix Error 404)
+          VERSION_TAG="26.1.23"
+          
+          echo "Mengunduh Xray-core v$VERSION_TAG untuk arm64-v8a..."
+          wget -q "https://github.com/XTLS/Xray-core/releases/download/v${VERSION_TAG}/Xray-android-arm64-v8a.zip"
+          unzip -q Xray-android-arm64-v8a.zip -d arm64_temp
+          mv arm64_temp/xray "$MAIN_DIR/jniLibs/arm64-v8a/libxray.so"
+          
+          echo "Mengunduh Xray-core v$VERSION_TAG untuk x86_64..."
+          wget -q "https://github.com/XTLS/Xray-core/releases/download/v${VERSION_TAG}/Xray-android-x86_64.zip"
+          unzip -q Xray-android-x86_64.zip -d x86_64_temp
+          mv x86_64_temp/xray "$MAIN_DIR/jniLibs/x86_64/libxray.so"
+          
+          # Bersihkan file sampah ekstraksi
+          rm -rf *.zip arm64_temp x86_64_temp
+          echo "[✓] Pustaka libxray.so v26.1.23 sukses dimasukkan."
+
+      - name: Update version.properties and Commit Changes
+        id: update_versions
+        run: |
+          git pull origin main || git pull origin utama
+
+          # Paksa tulis versi ke v26.1.23 dan versi Go yang sesuai
+          sed -i "s/^XRAY_CORE_VERSION=.*/XRAY_CORE_VERSION=v${{ steps.vars.outputs.target_version }}/" version.properties
+          sed -i "s/^GO_VERSION=.*/GO_VERSION=${{ steps.download_info.outputs.go_version }}/" version.properties
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Tambahkan file .so ke Git tracking
+          git add version.properties
+          git add **/jniLibs/**/*.so
+          git commit -m "chore: lock Xray-core to v${{ steps.vars.outputs.target_version }} (allowInsecure enabled)" || echo "No changes to commit"
+
+          # Menaikkan versi aplikasi (App Bump)
+          app_code=$(grep '^APP_VERSION_CODE=' version.properties | sed 's/.*= *//; s/ //g')
+          app_name=$(grep '^APP_VERSION_NAME=' version.properties | sed 's/.*= *//; s/ //g')
+          
+          new_app_code=$((app_code + 1))
+          new_app_name=$(echo "$app_name" | awk -F. '{ $NF++; print }' OFS='.')
+
+          sed -i "s/^APP_VERSION_CODE=.*/APP_VERSION_CODE=$new_app_code/" version.properties
+          sed -i "s/^APP_VERSION_NAME=.*/APP_VERSION_NAME=$new_app_name/" version.properties
+          
+          git add version.properties
+          git commit -m "chore(release): bump version to $new_app_name"
+          git push https://x-access-token:${{ secrets.PAT }}@github.com/${{ github.repository }}.git
+          echo "new_app_name=$new_app_name" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.update_versions.outputs.new_app_name }}
+          body: |
+            ### Release Info
+            - **Xray-core**: Dikunci pada versi **v${{ steps.vars.outputs.target_version }}**
+            - **Fitur Keamanan**: `allowInsecure` tetap aktif & didukung penuh pada versi build ini.
+          draft: false
+          prerelease: false
+          token: ${{ secrets.PAT }}
