@@ -76,11 +76,15 @@ fun AboutScreen(onBackClick: () -> Unit) {
                 title = stringResource(R.string.title_source_code),
                 onClick = { Utils.openUri(context, AppConfig.APP_URL) }
             )
+            // [Jalur Class/Modul]: app/src/main/java/com/sixray/cepat/ui/AboutActivity.kt
+            // [Penjelasan]: Mengarahkan menu Open Source ke alamat repositori https://github.com/unarto/Sixray sesuai instruksi pengguna
             SettingsMenuItem(
                 icon = painterResource(R.drawable.license_24px),
                 title = stringResource(R.string.title_oss_license),
-                onClick = { showOssDialog = true }
+                onClick = { Utils.openUri(context, AppConfig.APP_URL) }
             )
+            // [Jalur Class/Modul]: app/src/main/java/com/sixray/cepat/ui/AboutActivity.kt
+            // [Penjelasan]: Mengarahkan menu Feedback ke alamat issues https://github.com/unarto/Sixray/issues sesuai instruksi pengguna
             SettingsMenuItem(
                 icon = painterResource(R.drawable.ic_feedback_24dp),
                 title = stringResource(R.string.title_pref_feedback),

@@ -12,7 +12,11 @@ data class GitHubRelease(
     @SerializedName("prerelease")
     val prerelease: Boolean = false,
     @SerializedName("published_at")
-    val publishedAt: String = ""
+    val publishedAt: String = "",
+    // [Jalur Class/Modul]: app/src/main/java/com/sixray/cepat/dto/GitHubRelease.kt
+    // [Penjelasan]: Menambahkan URL halaman rilis GitHub untuk fallback ketika rilis tidak memiliki APK langsung
+    @SerializedName("html_url")
+    val htmlUrl: String? = null
 ) {
     data class Asset(
         @SerializedName("name")

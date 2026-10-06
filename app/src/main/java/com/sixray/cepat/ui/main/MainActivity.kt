@@ -146,10 +146,9 @@ class MainActivity : HelperBaseComponentActivity() {
             "backup_restore" -> Intent(this, BackupActivity::class.java)
             "about" -> Intent(this, AboutActivity::class.java)
             "promotion" -> {
-                Utils.openUri(
-                    this,
-                    "${Utils.decode(AppConfig.APP_PROMOTION_URL)}?t=${System.currentTimeMillis()}"
-                )
+                // [Jalur Class/Modul]: app/src/main/java/com/sixray/cepat/ui/main/MainActivity.kt
+                // [Penjelasan]: Membuka bot Telegram @Sivpncepat_bot saat menu Beli VPN Premium diklik
+                Utils.openUri(this, AppConfig.TG_BOT_URL)
                 return
             }
 

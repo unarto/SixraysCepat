@@ -284,7 +284,9 @@
     <string name="title_oss_license">Open Source licenses</string>
     <string name="title_tg_channel">Telegram channel</string>
 
-    <string name="title_pref_promotion">Promotion</string>
+    <!-- [Jalur Class/Modul]: app/src/main/res/values/strings.xml -->
+    <!-- [Penjelasan]: Menyesuaikan label menu promotion menjadi Buy VPN Premium agar konsisten dengan bahasa sistem default (English) -->
+    <string name="title_pref_promotion">Buy VPN Premium</string>
 
     <string name="title_pref_auto_update_subscription">Automatic update subscriptions</string>
     <string name="summary_pref_auto_update_subscription">Update your subscriptions automatically at set intervals in the background. Depending on the device, this feature may not always work</string>
