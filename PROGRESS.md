@@ -2,6 +2,38 @@
 2026-10-06
 
 ## Task
+Pemisahan APK per ABI (arm64-v8a, armeabi-v7a, x86, x86_64, dan universal) untuk build GitHub Actions
+
+## Status
+SELESAI
+
+## Files Changed
+- app/build.gradle.kts
+
+## Summary
+Mengaktifkan konfigurasi `splits.abi` pada `app/build.gradle.kts` agar menghasilkan build APK terpisah per arsitektur CPU (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) serta universal APK untuk keperluan rilis build di GitHub Actions.
+
+## Technical Details
+- Menetapkan `isEnable = true` pada blok `android.splits.abi`.
+- Memasukkan ABI target: `"armeabi-v7a"`, `"arm64-v8a"`, `"x86"`, `"x86_64"`.
+- Mempertahankan `isUniversalApk = true` untuk menyediakan paket universal.
+- Terverifikasi menghasilkan output APK terpisah:
+  - `app-arm64-v8a-*.apk` (armv8)
+  - `app-armeabi-v7a-*.apk` (armv7)
+  - `app-x86-*.apk` (x86)
+  - `app-x86_64-*.apk` (x64)
+  - `app-universal-*.apk` (universal)
+- Menyertakan komentar kepatuhan `[Jalur Class/Modul]` dan `[Penjelasan]`.
+
+## Verification
+- Kompilasi `compile_applet` -> PASS.
+
+---
+
+## Date
+2026-10-06
+
+## Task
 Penerapan Kebijakan Privasi (Opsi 2) dengan dokumen PRIVACY.md di GitHub Sixray
 
 ## Status

@@ -33,11 +33,11 @@ android {
     splits {
         abi {
             // [Jalur Class/Modul]: app/build.gradle.kts
-            // [Penjelasan]: Menonaktifkan ABI splits pada build debug agar menghasilkan app-debug.apk standar untuk deployment emulator preview
+            // [Penjelasan]: Mengaktifkan ABI splits untuk memisahkan APK arm64-v8a (armv8), armeabi-v7a (armv7), x86, x86_64 (x64), dan universal APK untuk build di GitHub
             isEnable = true
             reset()
             include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-            isUniversalApk = false
+            isUniversalApk = true
         }
     }
 
