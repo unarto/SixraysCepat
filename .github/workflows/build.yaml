@@ -128,28 +128,35 @@ jobs:
       if: ${{ success() }}
       with:
         name: arm64-v8a
-        path: ${{ github.workspace }}/app/build/outputs/apk/*/release/*arm64-v8a*.apk
+        path: ${{ github.workspace }}/app/build/outputs/apk/**/*arm64-v8a*.apk
 
     - name: Upload armeabi-v7a APK
       uses: actions/upload-artifact@v4
       if: ${{ success() }}
       with:
         name: armeabi-v7a
-        path: ${{ github.workspace }}/app/build/outputs/apk/*/release/*armeabi-v7a*.apk
+        path: ${{ github.workspace }}/app/build/outputs/apk/**/*armeabi-v7a*.apk
 
     - name: Upload x86 APK
       uses: actions/upload-artifact@v4
       if: ${{ success() }}
       with:
         name: x86-apk
-        path: ${{ github.workspace }}/app/build/outputs/apk/*/release/*x86*.apk
+        path: ${{ github.workspace }}/app/build/outputs/apk/**/*-x86-*.apk
+
+    - name: Upload x86_64 APK
+      uses: actions/upload-artifact@v4
+      if: ${{ success() }}
+      with:
+        name: x86_64-apk
+        path: ${{ github.workspace }}/app/build/outputs/apk/**/*x86_64*.apk
 
     - name: Upload universal / release APK
       uses: actions/upload-artifact@v4
       if: ${{ success() }}
       with:
         name: release-apk
-        path: ${{ github.workspace }}/app/build/outputs/apk/**/*.apk
+        path: ${{ github.workspace }}/app/build/outputs/apk/**/*universal*.apk
 
   sign-and-release:
     needs: build

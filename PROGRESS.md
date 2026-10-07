@@ -2,6 +2,31 @@
 2026-10-06
 
 ## Task
+Perbaikan path artifact upload APK pada workflow GitHub Actions (.github/workflows/build.yaml)
+
+## Status
+SELESAI
+
+## Files Changed
+- .github/workflows/build.yaml
+
+## Summary
+Memperbaiki pola path wildcard pada step `actions/upload-artifact@v4` di GitHub Actions yang sebelumnya menggunakan `app/build/outputs/apk/*/release/*...` menjadi recursive glob `app/build/outputs/apk/**/*...`.
+
+## Technical Details
+- Menyelesaikan masalah `Warning: No files were found with the provided path: app/build/outputs/apk/*/release/*arm64-v8a*.apk`.
+- Hal ini terjadi karena proyek tidak menggunakan product flavors (folder output langsung `app/build/outputs/apk/release/`), sehingga pola `apk/*/release/` gagal mencocokkan file.
+- Memperbarui path upload untuk `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`, dan `universal`.
+
+## Verification
+- Kompilasi `compile_applet` -> PASS.
+
+---
+
+## Date
+2026-10-06
+
+## Task
 Pemisahan APK per ABI (arm64-v8a, armeabi-v7a, x86, x86_64, dan universal) untuk build GitHub Actions
 
 ## Status
